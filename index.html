@@ -1,0 +1,178 @@
+html
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>לוח הופעות ואירועים - קריית התרבות אונו</title>
+    <!-- Tailwind CSS לעיצוב יפה ומודרני -->
+    <script src="https://jsdelivr.net"></script>
+    <style>
+        @import url('https://googleapis.com');
+        body { font-family: 'Heebo', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen antialiased flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- סרגל עליון מעוצב -->
+    <header class="relative overflow-hidden bg-gradient-to-b from-indigo-950 via-slate-900 to-transparent pt-12 pb-6 text-center border-b border-slate-800">
+        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.15),transparent_50%)]"></div>
+        <div class="relative z-10 max-w-4xl mx-auto px-4">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-4 backdrop-blur-md">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                עדכון אוטומטי חי בזמן אמת
+            </span>
+            <h1 class="text-4xl md:text-5xl font-black tracking-tight text-white bg-clip-text bg-gradient-to-r from-white via-slate-200 to-indigo-200">
+                לוח ההופעות והאירועים
+            </h1>
+            <p class="text-slate-400 mt-3 text-base md:text-lg max-w-xl mx-auto font-light">
+                כל התרבות, המוזיקה והסטנדאפ של <span class="text-indigo-400 font-medium">קריית התרבות אונו</span> במקום אחד.
+            </p>
+        </div>
+    </header>
+
+    <!-- אזור התוכן הראשי -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 py-8 w-full">
+        
+        <!-- הודעת טעינה מונפשת -->
+        <div id="loader" class="flex flex-col items-center justify-center py-24">
+            <div class="relative w-16 h-16">
+                <div class="absolute inset-0 rounded-full border-4 border-slate-800"></div>
+                <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+            </div>
+            <p class="text-slate-400 text-lg mt-6 font-medium animate-pulse">שואב את ההופעות החמות ביותר...</p>
+        </div>
+
+        <!-- גריד כרטיסיות ההופעות -->
+        <div id="events-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <!-- כאן יוזרקו הכרטיסיות המעוצבות -->
+        </div>
+    </main>
+
+    <!-- שוליים תחתונים -->
+    <footer class="text-center py-8 border-t border-slate-800 text-xs text-slate-500 bg-slate-950/50">
+        <p>הנתונים נמשכים אוטומטית מאתר קריית התרבות אונו. כל הזכויות שמורות ליוצרים.</p>
+    </footer>
+
+    <script>
+        // בנק תמונות רקע איכותיות לפי קטגוריות מילים
+        const fallbackImages = {
+            music: "https://unsplash.com",
+            standup: "https://unsplash.com",
+            theater: "https://unsplash.com",
+            kids: "https://unsplash.com",
+            default: "https://unsplash.com"
+        };
+
+        // התאמת תמונה חכמה לפי כותרת האירוע
+        function getEventImage(title) {
+            const t = title.toLowerCase();
+            if (t.includes('מופע') || t.includes('סטנדאפ') || t.includes('רועי לוי') || t.includes('אבוקסיס')) return fallbackImages.standup;
+            if (t.includes('מוזיק') || t.includes('שירה') || t.includes('אריק סיני') || t.includes('אמדורסקי') || t.includes('אוקטוברפסט')) return fallbackImages.music;
+            if (t.includes('הצגה') || t.includes('מחזה') || t.includes('מקליד')) return fallbackImages.theater;
+            if (t.includes('ילדים') || t.includes('קסם הקרקס') || t.includes('קרקס')) return fallbackImages.kids;
+            return fallbackImages.default;
+        }
+
+        async function fetchEvents() {
+            const targetUrl = 'https://www.tarbutono.co.il/%D7%94%D7%95%D7%A4%D7%A2%D7%95%D7%AA-%D7%95%D7%90%D7%99%D7%A8%D7%95%D7%A2%D7%99%D7%9D/';
+            const proxyUrl = `https://allorigins.win{encodeURIComponent(targetUrl)}`;
+
+            try {
+                const response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Failed to load');
+                
+                const data = await response.json();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(data.contents, 'text/html');
+                
+                // איתור אלמנטים לפי המבנה הקיים באתר
+                const eventElements = doc.querySelectorAll('.event-item, .events-list-item, article, .elementor-post'); 
+                const container = document.getElementById('events-container');
+                document.getElementById('loader').classList.add('hidden');
+
+                if (eventElements.length === 0) {
+                    showEmbedFallback();
+                    return;
+                }
+
+                eventElements.forEach(el => {
+                    const title = el.querySelector('h2, h3, .title, .event-title')?.innerText.trim() || 'מופע תרבות מעניין';
+                    const date = el.querySelector('.date, .event-date, time')?.innerText.trim() || 'בדקו באתר';
+                    const time = el.querySelector('.time, .event-time')?.innerText.trim() || '';
+                    const location = el.querySelector('.location, .venue')?.innerText.trim() || 'קריית התרבות אונו';
+                    const link = el.querySelector('a')?.href || targetUrl;
+                    const imgUrl = getEventImage(title);
+                    
+                    const card = document.createElement('div');
+                    card.className = "group relative bg-slate-800/50 rounded-2xl overflow-hidden border border-slate-700/60 shadow-xl hover:border-indigo-500/50 hover:shadow-indigo-500/5 transition-all duration-300 flex flex-col justify-between backdrop-blur-sm";
+                    
+                    card.innerHTML = `
+                        <div>
+                            <!-- תמונת רקע עליונה מעוצבת -->
+                            <div class="relative h-44 w-full overflow-hidden bg-slate-900">
+                                <div class="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent z-10"></div>
+                                <img src="${imgUrl}" alt="${title}" class="w-full h-full object-cover opacity-70 group-hover:scale-105 transition-transform duration-500">
+                                <span class="absolute top-4 right-4 z-20 inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold bg-slate-900/80 text-indigo-300 border border-slate-700 backdrop-blur-sm">
+                                    📍 ${location}
+                                </span>
+                            </div>
+                            
+                            <!-- תוכן הכרטיס -->
+                            <div class="p-6">
+                                <h3 class="text-xl font-bold text-white leading-snug group-hover:text-indigo-400 transition-colors duration-200 line-clamp-2">
+                                    ${title}
+                                </h3>
+                                
+                                <div class="mt-4 pt-4 border-t border-slate-700/50 space-y-2.5 text-sm text-slate-300">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-lg">📅</span>
+                                        <span><strong>תאריך:</strong> ${date}</span>
+                                    </div>
+                                    ${time ? `
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-lg">🕒</span>
+                                        <span><strong>שעה:</strong> ${time}</span>
+                                    </div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- כפתור פעולה תחתון -->
+                        <div class="p-6 pt-0">
+                            <a href="${link}" target="_blank" class="flex items-center justify-center gap-2 w-full text-center bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 px-4 rounded-xl transition-all duration-200 shadow-lg shadow-indigo-600/10">
+                                פרטים וכרטיסים 
+                                <span class="group-hover:translate-x-[-4px] transition-transform duration-200">←</span>
+                            </a>
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+
+            } catch (error) {
+                console.error(error);
+                showEmbedFallback();
+            }
+        }
+
+        // במקרה של חסימה, נטמיע את האתר בצורה נקייה ומאובטחת בתוך קוביה מעוצבת
+        function showEmbedFallback() {
+            document.getElementById('loader').classList.add('hidden');
+            const container = document.getElementById('events-container');
+            container.className = "w-full col-span-full max-w-5xl mx-auto";
+            container.innerHTML = `
+                <div class="bg-slate-800/40 border border-slate-700 p-4 rounded-2xl shadow-2xl flex flex-col h-[75vh]">
+חשוב להשתמש בקוד בזהירות.
+🌐 לוח מופעים ישיר מהאתר
+דף זה מציג את התוכן הרשמי ישירות מקריית התרבות
+
+
+פתיחה בחלון מלא ↗
+
+
+
+
+`;
+}
+window.addEventListener('DOMContentLoaded', fetchEvents);
+
